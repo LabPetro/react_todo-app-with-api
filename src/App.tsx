@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import classNames from 'classnames';
 import { Todo } from './types/Todo';
 import * as helpers from './api/todos';
 import { Status } from './types/status';
@@ -7,6 +6,7 @@ import { Emessage } from './types/Emessage';
 import { Header } from './Header';
 import { TodoList } from './TodoList';
 import { Footer } from './Footer';
+import { Notification } from './Notification';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -17,11 +17,12 @@ export const App: React.FC = () => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
   const [inputText, setInputText] = useState('');
-  const [deletedIds, setDeletedIds] = useState<number[]>([]);
   const [inputDisabled, setInputDisabled] = useState(false);
-  const [updatingIds, setUpdatingIds] = useState<number[]>([]);
+  const [loadingIds, setLoadingIds] = useState<{
+    updating: number[];
+    deleting: number[];
+  }>({ updating: [], deleting: [] });
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
-  const [newTitle, setNewTitle] = useState('');
 
   const closingErrMessage = () => {
     setErrMessage(Emessage.null);
@@ -63,10 +64,6 @@ export const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onInputChange = (value: string) => {
-    setInputText(value);
-  };
-
   const todosByStatus = (query = queryStatus) => {
     return todos?.filter(todo => {
       switch (query) {
@@ -95,21 +92,27 @@ export const App: React.FC = () => {
     const tempId = 0;
 
     setTempTodo({ id: tempId, ...newTodo });
-    setUpdatingIds([tempId]);
+    setLoadingIds(prev => ({ ...prev, updating: [...prev.updating, tempId] }));
 
     helpers
       .addTodo(newTodo)
       .then(todoFromServer => {
         setTodos(currentTodos => [...currentTodos, todoFromServer]);
-        setTempTodo(null);
-        setUpdatingIds(updIds => updIds.filter(id => id !== tempId));
-        onInputChange('');
+        setLoadingIds(prev => ({
+          ...prev,
+          updating: prev.updating.filter(id => id !== tempId),
+        }));
+        setInputText('');
       })
       .catch(() => handleErrMessage(Emessage.add))
       .finally(() => {
         setTempTodo(null);
         setInputDisabled(false);
-        setTimeout(() => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
+        timeoutRef.current = setTimeout(() => {
           presentInput(inputRef);
         }, 0);
       });
@@ -128,7 +131,7 @@ export const App: React.FC = () => {
   };
 
   const deleteTodo = (id: number) => {
-    setDeletedIds(presentState => [...presentState, id]);
+    setLoadingIds(prev => ({ ...prev, deleting: [...prev.deleting, id] }));
 
     helpers
       .deleteTodo(id)
@@ -140,7 +143,10 @@ export const App: React.FC = () => {
         handleErrMessage(Emessage.delete);
       })
       .finally(() => {
-        setDeletedIds([]);
+        setLoadingIds(prev => ({
+          ...prev,
+          deleting: prev.deleting.filter(delId => delId !== id),
+        }));
 
         setTimeout(() => {
           presentInput(inputRef);
@@ -149,7 +155,10 @@ export const App: React.FC = () => {
   };
 
   const updateTodo = (patchedTodo: Todo) => {
-    setUpdatingIds(present => [...present, patchedTodo.id]);
+    setLoadingIds(prev => ({
+      ...prev,
+      updating: [...prev.updating, patchedTodo.id],
+    }));
 
     helpers
       .updateTodo(patchedTodo)
@@ -165,7 +174,10 @@ export const App: React.FC = () => {
         handleErrMessage(Emessage.update);
       })
       .finally(() => {
-        setUpdatingIds([]);
+        setLoadingIds(prev => ({
+          ...prev,
+          updating: prev.updating.filter(updId => updId !== patchedTodo.id),
+        }));
       });
   };
 
@@ -187,12 +199,9 @@ export const App: React.FC = () => {
 
   const doubleClick = (todo: Todo) => {
     setSelectedTodo(todo);
-    setNewTitle(todo.title);
   };
 
-  const handleTitle = (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleTitle = (newTitle: string) => {
     if (!selectedTodo) {
       return;
     }
@@ -227,7 +236,7 @@ export const App: React.FC = () => {
           inputRef={inputRef}
           submitHandler={submitHandler}
           inputText={inputText}
-          onInputChange={onInputChange}
+          setInputText={setInputText}
           inputDisabled={inputDisabled}
           todosLength={todos.length}
           completedTodosLength={todosByStatus(Status.completed).length}
@@ -239,12 +248,9 @@ export const App: React.FC = () => {
             todosByStatus={todosByStatus}
             queryStatus={queryStatus}
             deleteTodo={deleteTodo}
-            deletedIds={deletedIds}
+            loadingIds={loadingIds}
             tempTodo={tempTodo}
-            updatingIds={updatingIds}
             selectedTodo={selectedTodo}
-            newTitle={newTitle}
-            setNewTitle={setNewTitle}
             updateTodo={updateTodo}
             handleTitle={handleTitle}
             escapeKeyHandler={escapeKeyHandler}
@@ -263,26 +269,10 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      {/* DON'T use conditional rendering to hide the notification */}
-      {/* Add the 'hidden' class to hide the message smoothly */}
-      <div
-        data-cy="ErrorNotification"
-        className={classNames(
-          'notification is-danger is-light has-text-weight-normal',
-          {
-            hidden: errMessage === Emessage.null,
-          },
-        )}
-      >
-        <button
-          data-cy="HideErrorButton"
-          type="button"
-          className="delete"
-          onClick={closingErrMessage}
-        />
-        {/* show only one message at a time */}
-        {errMessage}
-      </div>
+      <Notification
+        errMessage={errMessage}
+        closingErrMessage={closingErrMessage}
+      />
     </div>
   );
 };

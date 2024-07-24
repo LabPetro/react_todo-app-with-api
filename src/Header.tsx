@@ -5,7 +5,7 @@ interface HeaderProps {
   inputRef: React.RefObject<HTMLInputElement>;
   submitHandler: (e: React.FormEvent<HTMLFormElement>) => void;
   inputText: string;
-  onInputChange: (value: string) => void;
+  setInputText: (value: string) => void;
   inputDisabled: boolean;
   todosLength: number;
   completedTodosLength: number;
@@ -16,7 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   inputRef,
   submitHandler,
   inputText,
-  onInputChange,
+  setInputText,
   inputDisabled,
   todosLength,
   completedTodosLength,
@@ -24,7 +24,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="todoapp__header">
-      {/* this button should have `active` class only if all todos are completed */}
       {!!todosLength && (
         <button
           type="button"
@@ -36,7 +35,6 @@ export const Header: React.FC<HeaderProps> = ({
         />
       )}
 
-      {/* Add a todo on form submit */}
       <form onSubmit={submitHandler}>
         <input
           ref={inputRef}
@@ -45,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="todoapp__new-todo"
           placeholder="What needs to be done?"
           value={inputText}
-          onChange={e => onInputChange(e.target.value)}
+          onChange={e => setInputText(e.target.value)}
           disabled={inputDisabled}
         />
       </form>

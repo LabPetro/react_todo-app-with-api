@@ -1,18 +1,18 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import classNames from 'classnames';
 import { Todo } from './types/Todo';
 
 interface Props {
   todo: Todo;
   deleteTodo: (id: number) => void;
-  deletedIds: number[];
-  updatingIds: number[];
+  loadingIds: {
+    deleting: number[];
+    updating: number[];
+  };
   selectedTodo: Todo | null;
-  newTitle: string;
-  setNewTitle: (title: string) => void;
   updateTodo: (todo: Todo) => void;
-  handleTitle: (e: React.FormEvent) => void;
+  handleTitle: (newTitle: string) => void;
   escapeKeyHandler: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   doubleClick: (todo: Todo) => void;
 }
@@ -20,19 +20,32 @@ interface Props {
 export const TodoItem: React.FC<Props> = ({
   todo,
   deleteTodo,
-  deletedIds,
-  updatingIds,
+  loadingIds,
   selectedTodo,
-  newTitle,
-  setNewTitle,
   updateTodo,
   handleTitle,
   escapeKeyHandler,
   doubleClick,
 }) => {
   const { id, title, completed } = todo;
-  const deletedIdscheck = deletedIds.includes(id);
-  const updatedIdscheck = updatingIds.includes(id);
+  const loadingIdscheck =
+    loadingIds.deleting.includes(id) || loadingIds.updating.includes(id);
+  const [newTitle, setNewTitle] = useState(title);
+
+  useEffect(() => {
+    if (selectedTodo?.id === id) {
+      setNewTitle(title);
+    }
+  }, [selectedTodo, id, title]);
+
+  const onFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleTitle(newTitle);
+  };
+
+  const handleBlur = () => {
+    handleTitle(newTitle);
+  };
 
   return (
     <div
@@ -55,7 +68,7 @@ export const TodoItem: React.FC<Props> = ({
       </label>
 
       {selectedTodo?.id === id ? (
-        <form onSubmit={handleTitle}>
+        <form onSubmit={onFormSubmit}>
           <input
             autoFocus
             data-cy="TodoTitleField"
@@ -64,7 +77,7 @@ export const TodoItem: React.FC<Props> = ({
             placeholder="Empty todo will be deleted"
             value={newTitle}
             onChange={e => setNewTitle(e.target.value)}
-            onBlur={handleTitle}
+            onBlur={handleBlur}
             onKeyUp={escapeKeyHandler}
           />
         </form>
@@ -88,11 +101,10 @@ export const TodoItem: React.FC<Props> = ({
         </>
       )}
 
-      {/* 'is-active' class puts this modal on top of the todo */}
       <div
         data-cy="TodoLoader"
         className={classNames('modal overlay', {
-          'is-active': updatedIdscheck || deletedIdscheck,
+          'is-active': loadingIdscheck,
         })}
       >
         <div className="modal-background has-background-white-ter" />

@@ -7,14 +7,14 @@ interface TodoListProps {
   todosByStatus: (query?: Status) => Todo[];
   queryStatus: Status;
   deleteTodo: (id: number) => void;
-  deletedIds: number[];
+  loadingIds: {
+    deleting: number[];
+    updating: number[];
+  };
   tempTodo: Todo | null;
-  updatingIds: number[];
   selectedTodo: Todo | null;
-  newTitle: string;
-  setNewTitle: (title: string) => void;
   updateTodo: (todo: Todo) => void;
-  handleTitle: (e: React.FormEvent) => void;
+  handleTitle: (newTitle: string) => void;
   escapeKeyHandler: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   doubleClick: (todo: Todo) => void;
 }
@@ -23,12 +23,9 @@ export const TodoList: React.FC<TodoListProps> = ({
   queryStatus,
   todosByStatus,
   deleteTodo,
-  deletedIds,
+  loadingIds,
   tempTodo,
-  updatingIds,
   selectedTodo,
-  newTitle,
-  setNewTitle,
   updateTodo,
   handleTitle,
   escapeKeyHandler,
@@ -41,11 +38,8 @@ export const TodoList: React.FC<TodoListProps> = ({
           key={todo.id}
           todo={todo}
           deleteTodo={deleteTodo}
-          deletedIds={deletedIds}
-          updatingIds={updatingIds}
+          loadingIds={loadingIds}
           selectedTodo={selectedTodo}
-          newTitle={newTitle}
-          setNewTitle={setNewTitle}
           updateTodo={updateTodo}
           handleTitle={handleTitle}
           escapeKeyHandler={escapeKeyHandler}
@@ -56,11 +50,11 @@ export const TodoList: React.FC<TodoListProps> = ({
         <TodoItem
           todo={tempTodo}
           deleteTodo={() => {}}
-          deletedIds={[]}
-          updatingIds={[tempTodo.id]}
+          loadingIds={{
+            deleting: [],
+            updating: [tempTodo.id],
+          }}
           selectedTodo={null}
-          newTitle=""
-          setNewTitle={() => {}}
           updateTodo={() => {}}
           handleTitle={() => {}}
           escapeKeyHandler={() => {}}
