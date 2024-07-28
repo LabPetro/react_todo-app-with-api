@@ -6,13 +6,10 @@ import { Todo } from './types/Todo';
 interface Props {
   todo: Todo;
   deleteTodo: (id: number) => void;
-  loadingIds: {
-    deleting: number[];
-    updating: number[];
-  };
+  loadingIds: number[];
   selectedTodo: Todo | null;
   updateTodo: (todo: Todo) => void;
-  handleTitle: (newTitle: string) => void;
+  handleTitle: (id: number, newTitle: string) => void;
   escapeKeyHandler: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   doubleClick: (todo: Todo) => void;
 }
@@ -28,8 +25,7 @@ export const TodoItem: React.FC<Props> = ({
   doubleClick,
 }) => {
   const { id, title, completed } = todo;
-  const loadingIdscheck =
-    loadingIds.deleting.includes(id) || loadingIds.updating.includes(id);
+  const loadingIdscheck = loadingIds.includes(id);
   const [newTitle, setNewTitle] = useState(title);
 
   useEffect(() => {
@@ -40,11 +36,11 @@ export const TodoItem: React.FC<Props> = ({
 
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleTitle(newTitle);
+    handleTitle(todo.id, newTitle);
   };
 
   const handleBlur = () => {
-    handleTitle(newTitle);
+    handleTitle(id, newTitle);
   };
 
   return (

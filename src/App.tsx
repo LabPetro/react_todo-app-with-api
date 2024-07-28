@@ -16,12 +16,8 @@ export const App: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
-  const [inputText, setInputText] = useState('');
   const [inputDisabled, setInputDisabled] = useState(false);
-  const [loadingIds, setLoadingIds] = useState<{
-    updating: number[];
-    deleting: number[];
-  }>({ updating: [], deleting: [] });
+  const [loadingIds, setLoadingIds] = useState<number[]>([]);
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
 
   const closingErrMessage = () => {
@@ -64,6 +60,20 @@ export const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!inputDisabled) {
+      timeoutRef.current = setTimeout(() => {
+        presentInput(inputRef);
+      }, 0);
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [inputDisabled]);
+
   const todosByStatus = (query = queryStatus) => {
     return todos?.filter(todo => {
       switch (query) {
@@ -79,7 +89,7 @@ export const App: React.FC = () => {
     });
   };
 
-  const addTodo = () => {
+  const addTodo = (inputText: string): Promise<void> => {
     const userId = 837;
 
     const newTodo: Omit<Todo, 'id'> = {
@@ -92,46 +102,27 @@ export const App: React.FC = () => {
     const tempId = 0;
 
     setTempTodo({ id: tempId, ...newTodo });
-    setLoadingIds(prev => ({ ...prev, updating: [...prev.updating, tempId] }));
+    setLoadingIds(prev => [...prev, tempId]);
 
-    helpers
+    return helpers
       .addTodo(newTodo)
       .then(todoFromServer => {
         setTodos(currentTodos => [...currentTodos, todoFromServer]);
-        setLoadingIds(prev => ({
-          ...prev,
-          updating: prev.updating.filter(id => id !== tempId),
-        }));
-        setInputText('');
+        setLoadingIds(prev => prev.filter(id => id !== tempId));
       })
-      .catch(() => handleErrMessage(Emessage.add))
+      .catch(() => {
+        handleErrMessage(Emessage.add);
+
+        return Promise.reject();
+      })
       .finally(() => {
         setTempTodo(null);
         setInputDisabled(false);
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-
-        timeoutRef.current = setTimeout(() => {
-          presentInput(inputRef);
-        }, 0);
       });
   };
 
-  const submitHandler = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!inputText.trim()) {
-      handleErrMessage(Emessage.title);
-
-      return;
-    }
-
-    addTodo();
-  };
-
   const deleteTodo = (id: number) => {
-    setLoadingIds(prev => ({ ...prev, deleting: [...prev.deleting, id] }));
+    setLoadingIds(prev => [...prev, id]);
 
     helpers
       .deleteTodo(id)
@@ -143,10 +134,7 @@ export const App: React.FC = () => {
         handleErrMessage(Emessage.delete);
       })
       .finally(() => {
-        setLoadingIds(prev => ({
-          ...prev,
-          deleting: prev.deleting.filter(delId => delId !== id),
-        }));
+        setLoadingIds([]);
 
         setTimeout(() => {
           presentInput(inputRef);
@@ -155,10 +143,7 @@ export const App: React.FC = () => {
   };
 
   const updateTodo = (patchedTodo: Todo) => {
-    setLoadingIds(prev => ({
-      ...prev,
-      updating: [...prev.updating, patchedTodo.id],
-    }));
+    setLoadingIds(prev => [...prev, patchedTodo.id]);
 
     helpers
       .updateTodo(patchedTodo)
@@ -174,10 +159,7 @@ export const App: React.FC = () => {
         handleErrMessage(Emessage.update);
       })
       .finally(() => {
-        setLoadingIds(prev => ({
-          ...prev,
-          updating: prev.updating.filter(updId => updId !== patchedTodo.id),
-        }));
+        setLoadingIds(prev => prev.filter(updId => updId !== patchedTodo.id));
       });
   };
 
@@ -201,7 +183,7 @@ export const App: React.FC = () => {
     setSelectedTodo(todo);
   };
 
-  const handleTitle = (newTitle: string) => {
+  const handleTitle = (id: number, newTitle: string) => {
     if (!selectedTodo) {
       return;
     }
@@ -209,7 +191,7 @@ export const App: React.FC = () => {
     const uiTitle = newTitle.trim();
 
     if (uiTitle === '') {
-      deleteTodo(selectedTodo.id);
+      deleteTodo(id);
     } else if (uiTitle !== selectedTodo.title) {
       updateTodo({ ...selectedTodo, title: uiTitle });
     } else {
@@ -234,13 +216,12 @@ export const App: React.FC = () => {
       <div className="todoapp__content">
         <Header
           inputRef={inputRef}
-          submitHandler={submitHandler}
-          inputText={inputText}
-          setInputText={setInputText}
+          submitHandler={addTodo}
           inputDisabled={inputDisabled}
           todosLength={todos.length}
           completedTodosLength={todosByStatus(Status.completed).length}
           toggleAll={toggleAll}
+          handleErrMessage={handleErrMessage}
         />
 
         {!isLoading && (
